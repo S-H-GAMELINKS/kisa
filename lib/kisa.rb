@@ -47,7 +47,7 @@ class Kisa
       raise ArgumentError
     end
 
-    @conn.get('/api/v1/streaming/notification') do |res|
+    @conn.get('/api/v1/streaming/user/notification') do |res|
       res.options.on_data = proc do |event_type, data|
         yield(event_type, data)
       end
