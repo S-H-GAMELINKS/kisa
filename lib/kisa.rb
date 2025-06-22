@@ -83,4 +83,18 @@ class Kisa
   rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
     raise ConnectionFailedError
   end
+
+  def public_remote_stream
+    unless block_given?
+      raise ArgumentError
+    end
+
+    @conn.get('/api/v1/streaming/public/remote') do |res|
+      res.options.on_data = proc do |event_type, data|
+        yield(event_type, data)
+      end
+    end
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
 end
