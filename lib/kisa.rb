@@ -14,82 +14,38 @@ class Kisa
     @conn = Faraday.new(url:, headers:)
   end
 
-  def user_stream
-    unless block_given?
-      raise ArgumentError
-    end
-
-    @conn.get('/api/v1/streaming/user') do |res|
-      res.options.on_data = proc do |event_type, data|
-        yield(event_type, data)
-      end
-    end
-  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
-    raise ConnectionFailedError
+  def user_stream(&block)
+    stream('/api/v1/streaming/user', &block)
   end
 
-  def health_stream
-    unless block_given?
-      raise ArgumentError
-    end
-
-    @conn.get('/api/v1/streaming/health') do |res|
-      res.options.on_data = proc do |event_type, data|
-        yield(event_type, data)
-      end
-    end
-  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
-    raise ConnectionFailedError
+  def health_stream(&block)
+    stream('/api/v1/streaming/health', &block)
   end
 
-  def notification_stream
-    unless block_given?
-      raise ArgumentError
-    end
-
-    @conn.get('/api/v1/streaming/user/notification') do |res|
-      res.options.on_data = proc do |event_type, data|
-        yield(event_type, data)
-      end
-    end
-  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
-    raise ConnectionFailedError
+  def notification_stream(&block)
+    stream('/api/v1/streaming/user/notification', &block)
   end
 
-  def public_stream
-    unless block_given?
-      raise ArgumentError
-    end
-
-    @conn.get('/api/v1/streaming/public') do |res|
-      res.options.on_data = proc do |event_type, data|
-        yield(event_type, data)
-      end
-    end
-  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
-    raise ConnectionFailedError
+  def public_stream(&block)
+    stream('/api/v1/streaming/public', &block)
   end
 
-  def public_local_stream
-    unless block_given?
-      raise ArgumentError
-    end
-
-    @conn.get('/api/v1/streaming/public/local') do |res|
-      res.options.on_data = proc do |event_type, data|
-        yield(event_type, data)
-      end
-    end
-  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
-    raise ConnectionFailedError
+  def public_local_stream(&block)
+    stream('/api/v1/streaming/public/local', &block)
   end
 
-  def public_remote_stream
+  def public_remote_stream(&block)
+    stream('/api/v1/streaming/public/remote', &block)
+  end
+
+  private
+
+  def stream(url)
     unless block_given?
       raise ArgumentError
     end
 
-    @conn.get('/api/v1/streaming/public/remote') do |res|
+    @conn.get(url) do |res|
       res.options.on_data = proc do |event_type, data|
         yield(event_type, data)
       end
