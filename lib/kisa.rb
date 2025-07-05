@@ -62,6 +62,27 @@ class Kisa
     raise ConnectionFailedError
   end
 
+  def boost(status_id, visibility: 'public')
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    valid_visibilities = %w[public unlisted private direct]
+    unless valid_visibilities.include?(visibility)
+      raise ArgumentError, "visibility must be one of: #{valid_visibilities.join(', ')}"
+    end
+
+    body = { visibility: visibility }
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/reblog", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to boost status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
   private
 
   def build_query_params(params)
