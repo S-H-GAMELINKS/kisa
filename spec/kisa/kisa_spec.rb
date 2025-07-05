@@ -914,4 +914,74 @@ RSpec.describe Kisa do
       end
     end
   end
+
+  describe '#favourite' do
+    subject { described_class.new(url:, headers:).favourite(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:favourite_data) { { 'id' => '123456', 'favourited' => true, 'favourites_count' => 3 } }
+      let(:response) { double('response', success?: true, body: favourite_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/favourite').and_return(response)
+      end
+
+      it 'should make POST request to favourite endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/favourite')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(favourite_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to favourite status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
 end
