@@ -83,6 +83,20 @@ class Kisa
     raise ConnectionFailedError
   end
 
+  def favourite(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/favourite")
+
+    unless response.success?
+      raise Error, "Failed to favourite status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
   private
 
   def build_query_params(params)
