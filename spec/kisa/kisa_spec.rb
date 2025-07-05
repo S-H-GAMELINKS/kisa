@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'json'
 
 RSpec.describe Kisa do
   describe '.initialize' do
@@ -670,6 +671,139 @@ RSpec.describe Kisa do
         it 'should not raise error when streaming' do
           expect { subject }.not_to raise_error
         end
+      end
+    end
+  end
+
+  describe '#hashtag_timeline' do
+    subject { described_class.new(url:, headers:).hashtag_timeline(hashtag, params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:hashtag) { 'ruby' }
+    let(:params) { {} }
+
+    context 'when hashtag is nil' do
+      let(:hashtag) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'hashtag is required')
+      end
+    end
+
+    context 'when hashtag is empty' do
+      let(:hashtag) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'hashtag is required')
+      end
+    end
+
+    context 'when hashtag has # prefix' do
+      let(:hashtag) { '#ruby' }
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/tag/ruby').and_return(response)
+      end
+
+      it 'should remove # prefix' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/tag/ruby')
+      end
+    end
+
+    context 'with query parameters' do
+      let(:params) { { limit: 10, local: true, only_media: true } }
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/tag/ruby?limit=10&local=true&only_media=true').and_return(response)
+      end
+
+      it 'should include valid parameters in URL' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/tag/ruby?limit=10&local=true&only_media=true')
+      end
+    end
+
+    context 'with array parameters' do
+      let(:params) { { any: ['tech', 'programming'], all: ['news'], limit: 5 } }
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/tag/ruby?any[]=tech&any[]=programming&all[]=news&limit=5').and_return(response)
+      end
+
+      it 'should handle array parameters correctly' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/tag/ruby?any[]=tech&any[]=programming&all[]=news&limit=5')
+      end
+    end
+
+    context 'with invalid parameters' do
+      let(:params) { { invalid_param: 'value', limit: 20 } }
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/tag/ruby?limit=20').and_return(response)
+      end
+
+      it 'should filter out invalid parameters' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/tag/ruby?limit=20')
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to fetch hashtag timeline: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:timeline_data) { [
+        { 'id' => '1', 'content' => 'Post about #ruby' },
+        { 'id' => '2', 'content' => 'Another #ruby post' }
+      ] }
+      let(:response) { double('response', success?: true, body: timeline_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(timeline_data)
       end
     end
   end
