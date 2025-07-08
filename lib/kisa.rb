@@ -40,6 +40,10 @@ class Kisa
     stream('/api/v1/streaming/public/remote', &block)
   end
 
+  def direct_stream(&block)
+    stream('/api/v1/streaming/direct', &block)
+  end
+
   def hashtag_timeline(hashtag, params = {})
     raise ArgumentError, "hashtag is required" if hashtag.nil? || hashtag.empty?
 
