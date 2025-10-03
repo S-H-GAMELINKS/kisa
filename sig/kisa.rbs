@@ -1,4 +1,25 @@
-module Kisa
+class Kisa
   VERSION: String
-  # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+
+  def initialize: (url: String, headers: Hash[String, String]) -> void
+  def user_stream: () { (String, String) -> void } -> void
+  def health_stream: () { (String, String) -> void } -> void
+  def notification_stream: () { (String, String) -> void } -> void
+  def public_stream: () { (String, String) -> void } -> void
+  def public_local_stream: () { (String, String) -> void } -> void
+  def public_remote_stream: () { (String, String) -> void } -> void
+  def direct_stream: () { (String, String) -> void } -> void
+  def hashtag_timeline: (String hashtag, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+  def boost: (String | Integer status_id, ?visibility: String) -> Hash[String, untyped]
+  def favourite: (String | Integer status_id) -> Hash[String, untyped]
+  def home_timeline: (?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+  def public_timeline: (?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+  def list_timeline: (String | Integer list_id, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+
+  private
+
+  def build_query_params: (Hash[Symbol, untyped] params) -> String
+  def fetch_timeline: (String url, Hash[Symbol, untyped] params, Array[Symbol] allowed_params) -> Array[Hash[String, untyped]]
+  def build_timeline_query_params: (Hash[Symbol, untyped] params, Array[Symbol] allowed_params) -> String
+  def stream: (String url) { (String, String) -> void } -> void
 end

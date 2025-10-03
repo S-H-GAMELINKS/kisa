@@ -1091,4 +1091,286 @@ RSpec.describe Kisa do
       end
     end
   end
+
+  describe '#home_timeline' do
+    subject { described_class.new(url:, headers:).home_timeline(params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:params) { {} }
+
+    context 'without parameters' do
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/home').and_return(response)
+      end
+
+      it 'should request home timeline endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/home')
+      end
+    end
+
+    context 'with query parameters' do
+      let(:params) { { limit: 20, max_id: '12345' } }
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/home?limit=20&max_id=12345').and_return(response)
+      end
+
+      it 'should include valid parameters in URL' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/home?limit=20&max_id=12345')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:timeline_data) { [
+        { 'id' => '1', 'content' => 'Home timeline post 1' },
+        { 'id' => '2', 'content' => 'Home timeline post 2' }
+      ] }
+      let(:response) { double('response', success?: true, body: timeline_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(timeline_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to fetch timeline: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#public_timeline' do
+    subject { described_class.new(url:, headers:).public_timeline(params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:params) { {} }
+
+    context 'without parameters' do
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/public').and_return(response)
+      end
+
+      it 'should request public timeline endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/public')
+      end
+    end
+
+    context 'with local parameter' do
+      let(:params) { { local: true, limit: 10 } }
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/public?local=true&limit=10').and_return(response)
+      end
+
+      it 'should include local parameter in URL' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/public?local=true&limit=10')
+      end
+    end
+
+    context 'with only_media parameter' do
+      let(:params) { { only_media: true, remote: true } }
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/public?only_media=true&remote=true').and_return(response)
+      end
+
+      it 'should include media and remote parameters in URL' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/public?only_media=true&remote=true')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:timeline_data) { [
+        { 'id' => '1', 'content' => 'Public post 1' },
+        { 'id' => '2', 'content' => 'Public post 2' }
+      ] }
+      let(:response) { double('response', success?: true, body: timeline_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(timeline_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 500, body: 'Server error') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to fetch timeline: 500 Server error')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::TimeoutError)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#list_timeline' do
+    subject { described_class.new(url:, headers:).list_timeline(list_id, params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:list_id) { '123' }
+    let(:params) { {} }
+
+    context 'when list_id is nil' do
+      let(:list_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when list_id is empty' do
+      let(:list_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'with valid list_id' do
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/list/123').and_return(response)
+      end
+
+      it 'should request list timeline endpoint with list_id' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/list/123')
+      end
+    end
+
+    context 'with query parameters' do
+      let(:params) { { limit: 15, since_id: '999' } }
+      let(:response) { double('response', success?: true, body: '[]') }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/timelines/list/123?limit=15&since_id=999').and_return(response)
+      end
+
+      it 'should include valid parameters in URL' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/timelines/list/123?limit=15&since_id=999')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:timeline_data) { [
+        { 'id' => '1', 'content' => 'List post 1' },
+        { 'id' => '2', 'content' => 'List post 2' }
+      ] }
+      let(:response) { double('response', success?: true, body: timeline_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(timeline_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'List not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to fetch timeline: 404 List not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::SSLError)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
 end
