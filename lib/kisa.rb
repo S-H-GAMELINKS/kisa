@@ -101,6 +101,20 @@ class Kisa
     raise ConnectionFailedError
   end
 
+  def home_timeline(params = {})
+    fetch_timeline('/api/v1/timelines/home', params, %i[max_id since_id min_id limit])
+  end
+
+  def public_timeline(params = {})
+    fetch_timeline('/api/v1/timelines/public', params, %i[local remote only_media max_id since_id min_id limit])
+  end
+
+  def list_timeline(list_id, params = {})
+    raise ArgumentError, "list_id is required" if list_id.nil? || list_id.to_s.empty?
+
+    fetch_timeline("/api/v1/timelines/list/#{list_id}", params, %i[max_id since_id min_id limit])
+  end
+
   private
 
   def build_query_params(params)
@@ -125,6 +139,29 @@ class Kisa
     end
 
     query_parts.join('&')
+  end
+
+  def fetch_timeline(url, params, allowed_params)
+    query_params = build_timeline_query_params(params, allowed_params)
+    full_url = query_params.empty? ? url : "#{url}?#{query_params}"
+
+    response = @conn.get(full_url)
+
+    unless response.success?
+      raise Error, "Failed to fetch timeline: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def build_timeline_query_params(params, allowed_params)
+    filtered_params = params.select { |key, _| allowed_params.include?(key) }
+
+    filtered_params.map do |key, value|
+      "#{key}=#{CGI.escape(value.to_s)}"
+    end.join('&')
   end
 
   def stream(url)
