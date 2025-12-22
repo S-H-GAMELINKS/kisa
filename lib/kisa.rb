@@ -44,6 +44,32 @@ class Kisa
     stream('/api/v1/streaming/direct', &block)
   end
 
+  def hashtag_stream(hashtag, &block)
+    raise ArgumentError, "hashtag is required" if hashtag.nil? || hashtag.to_s.empty?
+
+    # Remove # prefix if present
+    hashtag = hashtag.sub(/^#/, '')
+    encoded_hashtag = CGI.escape(hashtag)
+
+    stream("/api/v1/streaming/hashtag?tag=#{encoded_hashtag}", &block)
+  end
+
+  def hashtag_local_stream(hashtag, &block)
+    raise ArgumentError, "hashtag is required" if hashtag.nil? || hashtag.to_s.empty?
+
+    # Remove # prefix if present
+    hashtag = hashtag.sub(/^#/, '')
+    encoded_hashtag = CGI.escape(hashtag)
+
+    stream("/api/v1/streaming/hashtag/local?tag=#{encoded_hashtag}", &block)
+  end
+
+  def list_stream(list_id, &block)
+    raise ArgumentError, "list_id is required" if list_id.nil? || list_id.to_s.empty?
+
+    stream("/api/v1/streaming/list?list=#{list_id}", &block)
+  end
+
   def hashtag_timeline(hashtag, params = {})
     raise ArgumentError, "hashtag is required" if hashtag.nil? || hashtag.empty?
 
@@ -94,6 +120,133 @@ class Kisa
 
     unless response.success?
       raise Error, "Failed to favourite status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def get_status(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.get("/api/v1/statuses/#{status_id}")
+
+    unless response.success?
+      raise Error, "Failed to get status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def delete_status(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.delete("/api/v1/statuses/#{status_id}")
+
+    unless response.success?
+      raise Error, "Failed to delete status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unfavourite(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/unfavourite")
+
+    unless response.success?
+      raise Error, "Failed to unfavourite status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unboost(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/unreblog")
+
+    unless response.success?
+      raise Error, "Failed to unboost status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def bookmark(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/bookmark")
+
+    unless response.success?
+      raise Error, "Failed to bookmark status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unbookmark(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/unbookmark")
+
+    unless response.success?
+      raise Error, "Failed to unbookmark status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def create_status(status, options = {})
+    raise ArgumentError, "status is required" if status.nil? || status.to_s.empty?
+
+    body = { status: status }
+
+    allowed_options = %i[media_ids poll in_reply_to_id sensitive spoiler_text visibility language scheduled_at]
+    allowed_options.each do |key|
+      body[key] = options[key] if options.key?(key)
+    end
+
+    response = @conn.post("/api/v1/statuses", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to create status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def edit_status(status_id, status, options = {})
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+    raise ArgumentError, "status is required" if status.nil? || status.to_s.empty?
+
+    body = { status: status }
+
+    allowed_options = %i[media_ids poll sensitive spoiler_text language]
+    allowed_options.each do |key|
+      body[key] = options[key] if options.key?(key)
+    end
+
+    response = @conn.put("/api/v1/statuses/#{status_id}", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to edit status: #{response.status} #{response.body}"
     end
 
     JSON.parse(response.body)
