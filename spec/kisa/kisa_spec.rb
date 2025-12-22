@@ -1373,4 +1373,1125 @@ RSpec.describe Kisa do
       end
     end
   end
+
+  describe 'hashtag_stream' do
+    subject { described_class.new(url:, headers:).hashtag_stream(hashtag, &block) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:hashtag) { 'ruby' }
+
+    describe 'about hashtag parameter validation' do
+      context 'when hashtag is nil' do
+        let(:hashtag) { nil }
+        let(:block) { proc {} }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError, 'hashtag is required')
+        end
+      end
+
+      context 'when hashtag is empty string' do
+        let(:hashtag) { '' }
+        let(:block) { proc {} }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError, 'hashtag is required')
+        end
+      end
+
+      context 'when hashtag has # prefix' do
+        let(:hashtag) { '#ruby' }
+        let(:block) { proc {} }
+        let(:connection) { instance_double(Faraday::Connection) }
+
+        before do
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get) do |url, &blk|
+            expect(url).to eq('/api/v1/streaming/hashtag?tag=ruby')
+          end
+        end
+
+        it 'should remove # prefix and encode correctly' do
+          subject
+        end
+      end
+
+      context 'when hashtag contains Unicode characters' do
+        let(:hashtag) { 'プログラミング' }
+        let(:block) { proc {} }
+        let(:connection) { instance_double(Faraday::Connection) }
+
+        before do
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get) do |url, &blk|
+            expect(url).to include('tag=%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0')
+          end
+        end
+
+        it 'should URL encode Unicode characters correctly' do
+          subject
+        end
+      end
+
+      context 'when hashtag contains emoji' do
+        let(:hashtag) { '❤️' }
+        let(:block) { proc {} }
+        let(:connection) { instance_double(Faraday::Connection) }
+
+        before do
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get) do |url, &blk|
+            expect(url).to include('tag=')
+          end
+        end
+
+        it 'should URL encode emoji correctly' do
+          subject
+        end
+      end
+
+      context 'when hashtag contains spaces' do
+        let(:hashtag) { 'ruby rails' }
+        let(:block) { proc {} }
+        let(:connection) { instance_double(Faraday::Connection) }
+
+        before do
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get) do |url, &blk|
+            expect(url).to include('tag=ruby+rails')
+          end
+        end
+
+        it 'should URL encode spaces correctly' do
+          subject
+        end
+      end
+    end
+
+    describe 'about block argument' do
+      context 'when block was not given' do
+        let(:block) { nil }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError)
+        end
+      end
+
+      context 'when block was given' do
+        let(:block) { proc {} }
+
+        it 'should not raise error' do
+          expect { subject }.not_to raise_error
+        end
+      end
+    end
+
+    describe 'about connect to Hashtag Streaming API' do
+      context 'when failed' do
+        let(:block) { proc {} }
+
+        before do
+          connection = instance_double(Faraday::Connection)
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get).and_raise(error)
+        end
+
+        context 'when raise Faraday::ConnectionFailed in internal' do
+          let(:error) { Faraday::ConnectionFailed }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+
+        context 'when raise Faraday::TimeoutError in internal' do
+          let(:error) { Faraday::TimeoutError }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+
+        context 'when raise Faraday::SSLError in internal' do
+          let(:error) { Faraday::SSLError }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+      end
+
+      context 'when successed' do
+        let(:received_events) { [] }
+        let(:block) { proc { |event_type, data| received_events << [event_type, data] } }
+
+        before do
+          connection = instance_double(Faraday::Connection)
+          allow(Faraday).to receive(:new).and_return(connection)
+
+          allow(connection).to receive(:get) do |&block|
+            response = double('response')
+            response_options = double('response_options')
+
+            allow(response).to receive(:options).and_return(response_options)
+
+            callback_proc = nil
+            allow(response_options).to receive(:on_data=) do |proc|
+              callback_proc = proc
+            end
+
+            block.call(response)
+
+            if callback_proc
+              callback_proc.call('event', '{"event":"update","payload":{"content":"Post with #ruby","tags":[{"name":"ruby"}]}}')
+              callback_proc.call('event', '{"event":"update","payload":{"content":"Another #ruby post","tags":[{"name":"ruby"}]}}')
+              callback_proc.call('event', '{"event":"delete","payload":"12345"}')
+            end
+          end
+        end
+
+        it 'should receive multiple hashtag stream events' do
+          subject
+
+          expect(received_events.length).to eq 3
+          expect(received_events[0]).to eq ['event', '{"event":"update","payload":{"content":"Post with #ruby","tags":[{"name":"ruby"}]}}']
+          expect(received_events[1]).to eq ['event', '{"event":"update","payload":{"content":"Another #ruby post","tags":[{"name":"ruby"}]}}']
+          expect(received_events[2]).to eq ['event', '{"event":"delete","payload":"12345"}']
+        end
+
+        it 'should not raise error when streaming' do
+          expect { subject }.not_to raise_error
+        end
+      end
+    end
+  end
+
+  describe 'hashtag_local_stream' do
+    subject { described_class.new(url:, headers:).hashtag_local_stream(hashtag, &block) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:hashtag) { 'rails' }
+
+    describe 'about hashtag parameter validation' do
+      context 'when hashtag is nil' do
+        let(:hashtag) { nil }
+        let(:block) { proc {} }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError, 'hashtag is required')
+        end
+      end
+
+      context 'when hashtag is empty string' do
+        let(:hashtag) { '' }
+        let(:block) { proc {} }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError, 'hashtag is required')
+        end
+      end
+
+      context 'when hashtag has # prefix' do
+        let(:hashtag) { '#rails' }
+        let(:block) { proc {} }
+        let(:connection) { instance_double(Faraday::Connection) }
+
+        before do
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get) do |url, &blk|
+            expect(url).to eq('/api/v1/streaming/hashtag/local?tag=rails')
+          end
+        end
+
+        it 'should remove # prefix and encode correctly' do
+          subject
+        end
+      end
+    end
+
+    describe 'about block argument' do
+      context 'when block was not given' do
+        let(:block) { nil }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError)
+        end
+      end
+
+      context 'when block was given' do
+        let(:block) { proc {} }
+
+        it 'should not raise error' do
+          expect { subject }.not_to raise_error
+        end
+      end
+    end
+
+    describe 'about connect to Local Hashtag Streaming API' do
+      context 'when failed' do
+        let(:block) { proc {} }
+
+        before do
+          connection = instance_double(Faraday::Connection)
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get).and_raise(error)
+        end
+
+        context 'when raise Faraday::ConnectionFailed in internal' do
+          let(:error) { Faraday::ConnectionFailed }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+
+        context 'when raise Faraday::TimeoutError in internal' do
+          let(:error) { Faraday::TimeoutError }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+
+        context 'when raise Faraday::SSLError in internal' do
+          let(:error) { Faraday::SSLError }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+      end
+
+      context 'when successed' do
+        let(:received_events) { [] }
+        let(:block) { proc { |event_type, data| received_events << [event_type, data] } }
+
+        before do
+          connection = instance_double(Faraday::Connection)
+          allow(Faraday).to receive(:new).and_return(connection)
+
+          allow(connection).to receive(:get) do |&block|
+            response = double('response')
+            response_options = double('response_options')
+
+            allow(response).to receive(:options).and_return(response_options)
+
+            callback_proc = nil
+            allow(response_options).to receive(:on_data=) do |proc|
+              callback_proc = proc
+            end
+
+            block.call(response)
+
+            if callback_proc
+              callback_proc.call('event', '{"event":"update","payload":{"content":"Local post with #rails","local":true,"tags":[{"name":"rails"}]}}')
+              callback_proc.call('event', '{"event":"update","payload":{"content":"Another local #rails post","local":true,"tags":[{"name":"rails"}]}}')
+            end
+          end
+        end
+
+        it 'should receive multiple local hashtag stream events' do
+          subject
+
+          expect(received_events.length).to eq 2
+          expect(received_events[0]).to eq ['event', '{"event":"update","payload":{"content":"Local post with #rails","local":true,"tags":[{"name":"rails"}]}}']
+          expect(received_events[1]).to eq ['event', '{"event":"update","payload":{"content":"Another local #rails post","local":true,"tags":[{"name":"rails"}]}}']
+        end
+
+        it 'should not raise error when streaming' do
+          expect { subject }.not_to raise_error
+        end
+      end
+    end
+  end
+
+  describe 'list_stream' do
+    subject { described_class.new(url:, headers:).list_stream(list_id, &block) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:list_id) { 12345 }
+
+    describe 'about list_id parameter validation' do
+      context 'when list_id is nil' do
+        let(:list_id) { nil }
+        let(:block) { proc {} }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+        end
+      end
+
+      context 'when list_id is empty string' do
+        let(:list_id) { '' }
+        let(:block) { proc {} }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+        end
+      end
+
+      context 'when list_id is Integer' do
+        let(:list_id) { 12345 }
+        let(:block) { proc {} }
+        let(:connection) { instance_double(Faraday::Connection) }
+
+        before do
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get) do |url, &blk|
+            expect(url).to eq('/api/v1/streaming/list?list=12345')
+          end
+        end
+
+        it 'should convert Integer to String correctly' do
+          subject
+        end
+      end
+
+      context 'when list_id is String' do
+        let(:list_id) { '67890' }
+        let(:block) { proc {} }
+        let(:connection) { instance_double(Faraday::Connection) }
+
+        before do
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get) do |url, &blk|
+            expect(url).to eq('/api/v1/streaming/list?list=67890')
+          end
+        end
+
+        it 'should use String list_id directly' do
+          subject
+        end
+      end
+    end
+
+    describe 'about block argument' do
+      context 'when block was not given' do
+        let(:block) { nil }
+
+        it 'should raise ArgumentError' do
+          expect { subject }.to raise_error(ArgumentError)
+        end
+      end
+
+      context 'when block was given' do
+        let(:block) { proc {} }
+
+        it 'should not raise error' do
+          expect { subject }.not_to raise_error
+        end
+      end
+    end
+
+    describe 'about connect to List Streaming API' do
+      context 'when failed' do
+        let(:block) { proc {} }
+
+        before do
+          connection = instance_double(Faraday::Connection)
+          allow(Faraday).to receive(:new).and_return(connection)
+          allow(connection).to receive(:get).and_raise(error)
+        end
+
+        context 'when raise Faraday::ConnectionFailed in internal' do
+          let(:error) { Faraday::ConnectionFailed }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+
+        context 'when raise Faraday::TimeoutError in internal' do
+          let(:error) { Faraday::TimeoutError }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+
+        context 'when raise Faraday::SSLError in internal' do
+          let(:error) { Faraday::SSLError }
+
+          it 'should raise Kisa::ConnectionFailedError' do
+            expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+          end
+        end
+      end
+
+      context 'when successed' do
+        let(:received_events) { [] }
+        let(:block) { proc { |event_type, data| received_events << [event_type, data] } }
+
+        before do
+          connection = instance_double(Faraday::Connection)
+          allow(Faraday).to receive(:new).and_return(connection)
+
+          allow(connection).to receive(:get) do |&block|
+            response = double('response')
+            response_options = double('response_options')
+
+            allow(response).to receive(:options).and_return(response_options)
+
+            callback_proc = nil
+            allow(response_options).to receive(:on_data=) do |proc|
+              callback_proc = proc
+            end
+
+            block.call(response)
+
+            if callback_proc
+              callback_proc.call('event', '{"event":"update","payload":{"content":"Post from list member","account":{"username":"alice"}}}')
+              callback_proc.call('event', '{"event":"update","payload":{"content":"Another post from list","account":{"username":"bob"}}}')
+              callback_proc.call('event', '{"event":"notification","payload":{"type":"mention","account":{"username":"alice"}}}')
+            end
+          end
+        end
+
+        it 'should receive multiple list stream events' do
+          subject
+
+          expect(received_events.length).to eq 3
+          expect(received_events[0]).to eq ['event', '{"event":"update","payload":{"content":"Post from list member","account":{"username":"alice"}}}']
+          expect(received_events[1]).to eq ['event', '{"event":"update","payload":{"content":"Another post from list","account":{"username":"bob"}}}']
+          expect(received_events[2]).to eq ['event', '{"event":"notification","payload":{"type":"mention","account":{"username":"alice"}}}']
+        end
+
+        it 'should not raise error when streaming' do
+          expect { subject }.not_to raise_error
+        end
+      end
+    end
+  end
+
+  describe '#get_status' do
+    subject { described_class.new(url:, headers:).get_status(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:status_data) { { 'id' => '123456', 'content' => 'Hello World', 'favourites_count' => 5 } }
+      let(:response) { double('response', success?: true, body: status_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/statuses/123456').and_return(response)
+      end
+
+      it 'should make GET request to status endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/statuses/123456')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(status_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#delete_status' do
+    subject { described_class.new(url:, headers:).delete_status(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:delete_data) { { 'id' => '123456', 'text' => 'Deleted status content' } }
+      let(:response) { double('response', success?: true, body: delete_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).with('/api/v1/statuses/123456').and_return(response)
+      end
+
+      it 'should make DELETE request to status endpoint' do
+        subject
+        expect(connection).to have_received(:delete).with('/api/v1/statuses/123456')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(delete_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to delete status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#unfavourite' do
+    subject { described_class.new(url:, headers:).unfavourite(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:unfavourite_data) { { 'id' => '123456', 'favourited' => false, 'favourites_count' => 2 } }
+      let(:response) { double('response', success?: true, body: unfavourite_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/unfavourite').and_return(response)
+      end
+
+      it 'should make POST request to unfavourite endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/unfavourite')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(unfavourite_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unfavourite status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#unboost' do
+    subject { described_class.new(url:, headers:).unboost(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:unboost_data) { { 'id' => '123456', 'reblogged' => false, 'reblogs_count' => 1 } }
+      let(:response) { double('response', success?: true, body: unboost_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/unreblog').and_return(response)
+      end
+
+      it 'should make POST request to unreblog endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/unreblog')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(unboost_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unboost status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#bookmark' do
+    subject { described_class.new(url:, headers:).bookmark(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:bookmark_data) { { 'id' => '123456', 'bookmarked' => true } }
+      let(:response) { double('response', success?: true, body: bookmark_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/bookmark').and_return(response)
+      end
+
+      it 'should make POST request to bookmark endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/bookmark')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(bookmark_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to bookmark status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#unbookmark' do
+    subject { described_class.new(url:, headers:).unbookmark(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:unbookmark_data) { { 'id' => '123456', 'bookmarked' => false } }
+      let(:response) { double('response', success?: true, body: unbookmark_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/unbookmark').and_return(response)
+      end
+
+      it 'should make POST request to unbookmark endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/unbookmark')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(unbookmark_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unbookmark status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#create_status' do
+    subject { described_class.new(url:, headers:).create_status(status, options) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status) { 'Hello, Mastodon!' }
+    let(:options) { {} }
+
+    context 'when status is nil' do
+      let(:status) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status is required')
+      end
+    end
+
+    context 'when status is empty' do
+      let(:status) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status is required')
+      end
+    end
+
+    context 'when request succeeds without options' do
+      let(:created_status) { { 'id' => '123456', 'content' => '<p>Hello, Mastodon!</p>' } }
+      let(:response) { double('response', success?: true, body: created_status.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should make POST request to statuses endpoint' do
+        subject
+        expect(connection).to have_received(:post).with(
+          '/api/v1/statuses',
+          { status: 'Hello, Mastodon!' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(created_status)
+      end
+    end
+
+    context 'when request succeeds with options' do
+      let(:options) { { visibility: 'private', sensitive: true, spoiler_text: 'CW' } }
+      let(:created_status) { { 'id' => '123456', 'content' => '<p>Hello, Mastodon!</p>', 'visibility' => 'private' } }
+      let(:response) { double('response', success?: true, body: created_status.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should include options in request body' do
+        subject
+        expect(connection).to have_received(:post).with(
+          '/api/v1/statuses',
+          { status: 'Hello, Mastodon!', sensitive: true, spoiler_text: 'CW', visibility: 'private' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 422, body: 'Validation failed') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to create status: 422 Validation failed')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#edit_status' do
+    subject { described_class.new(url:, headers:).edit_status(status_id, status, options) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+    let(:status) { 'Edited content' }
+    let(:options) { {} }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status is nil' do
+      let(:status) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status is required')
+      end
+    end
+
+    context 'when status is empty' do
+      let(:status) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status is required')
+      end
+    end
+
+    context 'when request succeeds without options' do
+      let(:edited_status) { { 'id' => '123456', 'content' => '<p>Edited content</p>' } }
+      let(:response) { double('response', success?: true, body: edited_status.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:put).and_return(response)
+      end
+
+      it 'should make PUT request to status endpoint' do
+        subject
+        expect(connection).to have_received(:put).with(
+          '/api/v1/statuses/123456',
+          { status: 'Edited content' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(edited_status)
+      end
+    end
+
+    context 'when request succeeds with options' do
+      let(:options) { { sensitive: true, spoiler_text: 'Updated CW' } }
+      let(:edited_status) { { 'id' => '123456', 'content' => '<p>Edited content</p>', 'sensitive' => true } }
+      let(:response) { double('response', success?: true, body: edited_status.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:put).and_return(response)
+      end
+
+      it 'should include options in request body' do
+        subject
+        expect(connection).to have_received(:put).with(
+          '/api/v1/statuses/123456',
+          { status: 'Edited content', sensitive: true, spoiler_text: 'Updated CW' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:put).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to edit status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:put).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
 end
