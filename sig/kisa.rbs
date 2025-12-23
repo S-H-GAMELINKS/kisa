@@ -16,6 +16,16 @@ class Kisa
   def public_timeline: (?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
   def list_timeline: (String | Integer list_id, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
 
+  # Accounts API
+  def get_account: (String | Integer account_id) -> Hash[String, untyped]
+  def verify_credentials: () -> Hash[String, untyped]
+  def update_credentials: (?Hash[Symbol, untyped] options) -> Hash[String, untyped]
+  def account_statuses: (String | Integer account_id, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+  def follow: (String | Integer account_id, ?Hash[Symbol, untyped] options) -> Hash[String, untyped]
+  def unfollow: (String | Integer account_id) -> Hash[String, untyped]
+  def followers: (String | Integer account_id, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+  def following: (String | Integer account_id, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+
   private
 
   def build_query_params: (Hash[Symbol, untyped] params) -> String
