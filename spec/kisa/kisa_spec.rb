@@ -2494,4 +2494,659 @@ RSpec.describe Kisa do
       end
     end
   end
+
+  # Accounts API
+
+  describe '#get_account' do
+    subject { described_class.new(url:, headers:).get_account(account_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123456' }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:account_data) { { 'id' => '123456', 'username' => 'testuser', 'display_name' => 'Test User' } }
+      let(:response) { double('response', success?: true, body: account_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should make GET request to account endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/accounts/123456')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(account_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Account not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get account: 404 Account not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#verify_credentials' do
+    subject { described_class.new(url:, headers:).verify_credentials }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+
+    context 'when request succeeds' do
+      let(:credential_data) { { 'id' => '123456', 'username' => 'testuser', 'source' => { 'privacy' => 'public' } } }
+      let(:response) { double('response', success?: true, body: credential_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should make GET request to verify_credentials endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/accounts/verify_credentials')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(credential_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to verify credentials: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#account_statuses' do
+    subject { described_class.new(url:, headers:).account_statuses(account_id, params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123456' }
+    let(:params) { {} }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds without params' do
+      let(:statuses_data) { [{ 'id' => '1', 'content' => 'Hello' }, { 'id' => '2', 'content' => 'World' }] }
+      let(:response) { double('response', success?: true, body: statuses_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should make GET request to account statuses endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/accounts/123456/statuses')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(statuses_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 10, only_media: true, exclude_replies: true } }
+      let(:statuses_data) { [{ 'id' => '1', 'content' => 'Hello' }] }
+      let(:response) { double('response', success?: true, body: statuses_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should include query parameters in request' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/accounts/123456/statuses?limit=10&only_media=true&exclude_replies=true')
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Account not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get account statuses: 404 Account not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#followers' do
+    subject { described_class.new(url:, headers:).followers(account_id, params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123456' }
+    let(:params) { {} }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds without params' do
+      let(:followers_data) { [{ 'id' => '1', 'username' => 'user1' }, { 'id' => '2', 'username' => 'user2' }] }
+      let(:response) { double('response', success?: true, body: followers_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should make GET request to followers endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/accounts/123456/followers')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(followers_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 20, max_id: '999' } }
+      let(:followers_data) { [{ 'id' => '1', 'username' => 'user1' }] }
+      let(:response) { double('response', success?: true, body: followers_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should include query parameters in request' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/accounts/123456/followers?limit=20&max_id=999')
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Account not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get followers: 404 Account not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#following' do
+    subject { described_class.new(url:, headers:).following(account_id, params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123456' }
+    let(:params) { {} }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds without params' do
+      let(:following_data) { [{ 'id' => '1', 'username' => 'user1' }, { 'id' => '2', 'username' => 'user2' }] }
+      let(:response) { double('response', success?: true, body: following_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should make GET request to following endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/accounts/123456/following')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(following_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 20, max_id: '999' } }
+      let(:following_data) { [{ 'id' => '1', 'username' => 'user1' }] }
+      let(:response) { double('response', success?: true, body: following_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should include query parameters in request' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/accounts/123456/following?limit=20&max_id=999')
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Account not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get following: 404 Account not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#follow' do
+    subject { described_class.new(url:, headers:).follow(account_id, options) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123456' }
+    let(:options) { {} }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds without options' do
+      let(:relationship_data) { { 'id' => '123456', 'following' => true, 'followed_by' => false } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should make POST request to follow endpoint' do
+        subject
+        expect(connection).to have_received(:post).with(
+          '/api/v1/accounts/123456/follow',
+          {}.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request succeeds with options' do
+      let(:options) { { reblogs: false, notify: true } }
+      let(:relationship_data) { { 'id' => '123456', 'following' => true, 'notifying' => true } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should include options in request body' do
+        subject
+        expect(connection).to have_received(:post).with(
+          '/api/v1/accounts/123456/follow',
+          { reblogs: false, notify: true }.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Account not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to follow account: 404 Account not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#unfollow' do
+    subject { described_class.new(url:, headers:).unfollow(account_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123456' }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:relationship_data) { { 'id' => '123456', 'following' => false, 'followed_by' => false } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should make POST request to unfollow endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/accounts/123456/unfollow')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Account not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unfollow account: 404 Account not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#update_credentials' do
+    subject { described_class.new(url:, headers:).update_credentials(options) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:options) { {} }
+
+    context 'when request succeeds without options' do
+      let(:credential_data) { { 'id' => '123456', 'username' => 'testuser', 'display_name' => 'Test User' } }
+      let(:response) { double('response', success?: true, body: credential_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:patch).and_return(response)
+      end
+
+      it 'should make PATCH request to update_credentials endpoint' do
+        subject
+        expect(connection).to have_received(:patch).with(
+          '/api/v1/accounts/update_credentials',
+          {}.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(credential_data)
+      end
+    end
+
+    context 'when request succeeds with options' do
+      let(:options) { { display_name: 'New Name', note: 'New bio', locked: true } }
+      let(:credential_data) { { 'id' => '123456', 'display_name' => 'New Name', 'note' => 'New bio', 'locked' => true } }
+      let(:response) { double('response', success?: true, body: credential_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:patch).and_return(response)
+      end
+
+      it 'should include options in request body' do
+        subject
+        expect(connection).to have_received(:patch).with(
+          '/api/v1/accounts/update_credentials',
+          { display_name: 'New Name', note: 'New bio', locked: true }.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+    end
+
+    context 'when request succeeds with invalid options filtered out' do
+      let(:options) { { display_name: 'New Name', invalid_option: 'should be ignored' } }
+      let(:credential_data) { { 'id' => '123456', 'display_name' => 'New Name' } }
+      let(:response) { double('response', success?: true, body: credential_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:patch).and_return(response)
+      end
+
+      it 'should filter out invalid options' do
+        subject
+        expect(connection).to have_received(:patch).with(
+          '/api/v1/accounts/update_credentials',
+          { display_name: 'New Name' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 422, body: 'Validation failed') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:patch).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to update credentials: 422 Validation failed')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:patch).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
 end

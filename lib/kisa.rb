@@ -268,6 +268,140 @@ class Kisa
     fetch_timeline("/api/v1/timelines/list/#{list_id}", params, %i[max_id since_id min_id limit])
   end
 
+  # Accounts API
+
+  def get_account(account_id)
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    response = @conn.get("/api/v1/accounts/#{account_id}")
+
+    unless response.success?
+      raise Error, "Failed to get account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def verify_credentials
+    response = @conn.get("/api/v1/accounts/verify_credentials")
+
+    unless response.success?
+      raise Error, "Failed to verify credentials: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def account_statuses(account_id, params = {})
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    allowed_params = %i[max_id since_id min_id limit only_media exclude_replies exclude_reblogs pinned tagged]
+    query_params = build_timeline_query_params(params, allowed_params)
+
+    url = "/api/v1/accounts/#{account_id}/statuses"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get account statuses: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def followers(account_id, params = {})
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    allowed_params = %i[max_id since_id min_id limit]
+    query_params = build_timeline_query_params(params, allowed_params)
+
+    url = "/api/v1/accounts/#{account_id}/followers"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get followers: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def following(account_id, params = {})
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    allowed_params = %i[max_id since_id min_id limit]
+    query_params = build_timeline_query_params(params, allowed_params)
+
+    url = "/api/v1/accounts/#{account_id}/following"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get following: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def follow(account_id, options = {})
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    allowed_options = %i[reblogs notify languages]
+    body = options.select { |key, _| allowed_options.include?(key) }
+
+    response = @conn.post("/api/v1/accounts/#{account_id}/follow", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to follow account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unfollow(account_id)
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    response = @conn.post("/api/v1/accounts/#{account_id}/unfollow")
+
+    unless response.success?
+      raise Error, "Failed to unfollow account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def update_credentials(options = {})
+    allowed_options = %i[display_name note avatar header locked bot discoverable hide_collections indexable fields_attributes source]
+    body = options.select { |key, _| allowed_options.include?(key) }
+
+    response = @conn.patch("/api/v1/accounts/update_credentials", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to update credentials: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
   private
 
   def build_query_params(params)
