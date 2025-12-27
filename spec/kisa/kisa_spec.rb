@@ -2286,6 +2286,734 @@ RSpec.describe Kisa do
     end
   end
 
+  describe '#pin_status' do
+    subject { described_class.new(url:, headers:).pin_status(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:pin_data) { { 'id' => '123456', 'pinned' => true } }
+      let(:response) { double('response', success?: true, body: pin_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/pin').and_return(response)
+      end
+
+      it 'should make POST request to pin endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/pin')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(pin_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 422, body: 'Validation failed') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to pin status: 422 Validation failed')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#unpin_status' do
+    subject { described_class.new(url:, headers:).unpin_status(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:unpin_data) { { 'id' => '123456', 'pinned' => false } }
+      let(:response) { double('response', success?: true, body: unpin_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/unpin').and_return(response)
+      end
+
+      it 'should make POST request to unpin endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/unpin')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(unpin_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unpin status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#mute_status' do
+    subject { described_class.new(url:, headers:).mute_status(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:mute_data) { { 'id' => '123456', 'muted' => true } }
+      let(:response) { double('response', success?: true, body: mute_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/mute').and_return(response)
+      end
+
+      it 'should make POST request to mute endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/mute')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(mute_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to mute status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#unmute_status' do
+    subject { described_class.new(url:, headers:).unmute_status(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:unmute_data) { { 'id' => '123456', 'muted' => false } }
+      let(:response) { double('response', success?: true, body: unmute_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/unmute').and_return(response)
+      end
+
+      it 'should make POST request to unmute endpoint' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/unmute')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(unmute_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unmute status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#get_status_context' do
+    subject { described_class.new(url:, headers:).get_status_context(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:context_data) do
+        {
+          'ancestors' => [{ 'id' => '100', 'content' => 'Parent post' }],
+          'descendants' => [{ 'id' => '102', 'content' => 'Reply post' }]
+        }
+      end
+      let(:response) { double('response', success?: true, body: context_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/statuses/123456/context').and_return(response)
+      end
+
+      it 'should make GET request to context endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/statuses/123456/context')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(context_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get status context: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#get_status_history' do
+    subject { described_class.new(url:, headers:).get_status_history(status_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:history_data) do
+        [
+          { 'content' => 'Original content', 'created_at' => '2024-01-01T00:00:00Z' },
+          { 'content' => 'Edited content', 'created_at' => '2024-01-02T00:00:00Z' }
+        ]
+      end
+      let(:response) { double('response', success?: true, body: history_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/statuses/123456/history').and_return(response)
+      end
+
+      it 'should make GET request to history endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/statuses/123456/history')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(history_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get status history: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#reblogged_by' do
+    subject { described_class.new(url:, headers:).reblogged_by(status_id, params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+    let(:params) { {} }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds without params' do
+      let(:accounts_data) do
+        [
+          { 'id' => '1', 'username' => 'user1', 'acct' => 'user1' },
+          { 'id' => '2', 'username' => 'user2', 'acct' => 'user2' }
+        ]
+      end
+      let(:response) { double('response', success?: true, body: accounts_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/statuses/123456/reblogged_by').and_return(response)
+      end
+
+      it 'should make GET request to reblogged_by endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/statuses/123456/reblogged_by')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(accounts_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 20, max_id: '999' } }
+      let(:accounts_data) { [{ 'id' => '1', 'username' => 'user1' }] }
+      let(:response) { double('response', success?: true, body: accounts_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/statuses/123456/reblogged_by?limit=20&max_id=999').and_return(response)
+      end
+
+      it 'should make GET request with query params' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/statuses/123456/reblogged_by?limit=20&max_id=999')
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get reblogged_by: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#favourited_by' do
+    subject { described_class.new(url:, headers:).favourited_by(status_id, params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+    let(:params) { {} }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds without params' do
+      let(:accounts_data) do
+        [
+          { 'id' => '1', 'username' => 'user1', 'acct' => 'user1' },
+          { 'id' => '2', 'username' => 'user2', 'acct' => 'user2' }
+        ]
+      end
+      let(:response) { double('response', success?: true, body: accounts_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/statuses/123456/favourited_by').and_return(response)
+      end
+
+      it 'should make GET request to favourited_by endpoint' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/statuses/123456/favourited_by')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(accounts_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 20, max_id: '999' } }
+      let(:accounts_data) { [{ 'id' => '1', 'username' => 'user1' }] }
+      let(:response) { double('response', success?: true, body: accounts_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/statuses/123456/favourited_by?limit=20&max_id=999').and_return(response)
+      end
+
+      it 'should make GET request with query params' do
+        subject
+        expect(connection).to have_received(:get).with('/api/v1/statuses/123456/favourited_by?limit=20&max_id=999')
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get favourited_by: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe '#translate_status' do
+    subject { described_class.new(url:, headers:).translate_status(status_id, lang:) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:status_id) { '123456' }
+    let(:lang) { nil }
+
+    context 'when status_id is nil' do
+      let(:status_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when status_id is empty' do
+      let(:status_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'status_id is required')
+      end
+    end
+
+    context 'when request succeeds without lang' do
+      let(:translation_data) do
+        {
+          'content' => 'Translated text',
+          'detected_source_language' => 'en',
+          'provider' => 'DeepL'
+        }
+      end
+      let(:response) { double('response', success?: true, body: translation_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/statuses/123456/translate').and_return(response)
+      end
+
+      it 'should make POST request to translate endpoint without body' do
+        subject
+        expect(connection).to have_received(:post).with('/api/v1/statuses/123456/translate')
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(translation_data)
+      end
+    end
+
+    context 'when request succeeds with lang' do
+      let(:lang) { 'ja' }
+      let(:translation_data) do
+        {
+          'content' => '翻訳されたテキスト',
+          'detected_source_language' => 'en',
+          'provider' => 'DeepL'
+        }
+      end
+      let(:response) { double('response', success?: true, body: translation_data.to_json) }
+      let(:connection) { instance_double(Faraday::Connection) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with(
+          '/api/v1/statuses/123456/translate',
+          { lang: 'ja' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should make POST request with lang in body' do
+        subject
+        expect(connection).to have_received(:post).with(
+          '/api/v1/statuses/123456/translate',
+          { lang: 'ja' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        )
+      end
+
+      it 'should return parsed JSON response' do
+        expect(subject).to eq(translation_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Status not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to translate status: 404 Status not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
   describe '#create_status' do
     subject { described_class.new(url:, headers:).create_status(status, options) }
 

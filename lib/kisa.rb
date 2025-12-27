@@ -254,6 +254,147 @@ class Kisa
     raise ConnectionFailedError
   end
 
+  # Statuses API - Extended
+
+  def pin_status(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/pin")
+
+    unless response.success?
+      raise Error, "Failed to pin status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unpin_status(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/unpin")
+
+    unless response.success?
+      raise Error, "Failed to unpin status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def mute_status(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/mute")
+
+    unless response.success?
+      raise Error, "Failed to mute status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unmute_status(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.post("/api/v1/statuses/#{status_id}/unmute")
+
+    unless response.success?
+      raise Error, "Failed to unmute status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def get_status_context(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.get("/api/v1/statuses/#{status_id}/context")
+
+    unless response.success?
+      raise Error, "Failed to get status context: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def get_status_history(status_id)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    response = @conn.get("/api/v1/statuses/#{status_id}/history")
+
+    unless response.success?
+      raise Error, "Failed to get status history: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def reblogged_by(status_id, params = {})
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    query_params = build_timeline_query_params(params, %i[max_id since_id min_id limit])
+    url = "/api/v1/statuses/#{status_id}/reblogged_by"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get reblogged_by: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def favourited_by(status_id, params = {})
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    query_params = build_timeline_query_params(params, %i[max_id since_id min_id limit])
+    url = "/api/v1/statuses/#{status_id}/favourited_by"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get favourited_by: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def translate_status(status_id, lang: nil)
+    raise ArgumentError, "status_id is required" if status_id.nil? || status_id.to_s.empty?
+
+    if lang
+      body = { lang: lang }
+      response = @conn.post("/api/v1/statuses/#{status_id}/translate", body.to_json, { 'Content-Type' => 'application/json' })
+    else
+      response = @conn.post("/api/v1/statuses/#{status_id}/translate")
+    end
+
+    unless response.success?
+      raise Error, "Failed to translate status: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
   def home_timeline(params = {})
     fetch_timeline('/api/v1/timelines/home', params, %i[max_id since_id min_id limit])
   end

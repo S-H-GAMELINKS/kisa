@@ -16,6 +16,17 @@ class Kisa
   def public_timeline: (?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
   def list_timeline: (String | Integer list_id, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
 
+  # Statuses API - Extended
+  def get_status_context: (String | Integer status_id) -> Hash[String, untyped]
+  def get_status_history: (String | Integer status_id) -> Array[Hash[String, untyped]]
+  def reblogged_by: (String | Integer status_id, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+  def favourited_by: (String | Integer status_id, ?Hash[Symbol, untyped] params) -> Array[Hash[String, untyped]]
+  def pin_status: (String | Integer status_id) -> Hash[String, untyped]
+  def unpin_status: (String | Integer status_id) -> Hash[String, untyped]
+  def mute_status: (String | Integer status_id) -> Hash[String, untyped]
+  def unmute_status: (String | Integer status_id) -> Hash[String, untyped]
+  def translate_status: (String | Integer status_id, ?lang: String?) -> Hash[String, untyped]
+
   # Accounts API
   def get_account: (String | Integer account_id) -> Hash[String, untyped]
   def verify_credentials: () -> Hash[String, untyped]
