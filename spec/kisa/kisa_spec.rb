@@ -4636,4 +4636,284 @@ RSpec.describe Kisa do
       end
     end
   end
+
+  # Notifications API
+
+  describe 'notifications' do
+    subject { described_class.new(url:, headers:).notifications(params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:params) { {} }
+
+    context 'when request succeeds without params' do
+      let(:notifications_data) do
+        [
+          { 'id' => '1', 'type' => 'mention', 'created_at' => '2024-01-01T00:00:00Z' },
+          { 'id' => '2', 'type' => 'follow', 'created_at' => '2024-01-01T00:01:00Z' }
+        ]
+      end
+      let(:response) { double('response', success?: true, body: notifications_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/notifications').and_return(response)
+      end
+
+      it 'should return notifications data' do
+        expect(subject).to eq(notifications_data)
+      end
+    end
+
+    context 'when request succeeds with pagination params' do
+      let(:params) { { limit: 10, max_id: '100' } }
+      let(:notifications_data) { [{ 'id' => '1', 'type' => 'mention' }] }
+      let(:response) { double('response', success?: true, body: notifications_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/notifications?limit=10&max_id=100').and_return(response)
+      end
+
+      it 'should return notifications data' do
+        expect(subject).to eq(notifications_data)
+      end
+    end
+
+    context 'when request succeeds with types filter' do
+      let(:params) { { types: ['mention', 'follow'] } }
+      let(:notifications_data) { [{ 'id' => '1', 'type' => 'mention' }] }
+      let(:response) { double('response', success?: true, body: notifications_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/notifications?types[]=mention&types[]=follow').and_return(response)
+      end
+
+      it 'should return notifications data' do
+        expect(subject).to eq(notifications_data)
+      end
+    end
+
+    context 'when request succeeds with exclude_types filter' do
+      let(:params) { { exclude_types: ['reblog', 'favourite'] } }
+      let(:notifications_data) { [{ 'id' => '1', 'type' => 'mention' }] }
+      let(:response) { double('response', success?: true, body: notifications_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/notifications?exclude_types[]=reblog&exclude_types[]=favourite').and_return(response)
+      end
+
+      it 'should return notifications data' do
+        expect(subject).to eq(notifications_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get notifications: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'get_notification' do
+    subject { described_class.new(url:, headers:).get_notification(notification_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:notification_id) { '123' }
+
+    context 'when notification_id is nil' do
+      let(:notification_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'notification_id is required')
+      end
+    end
+
+    context 'when notification_id is empty' do
+      let(:notification_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'notification_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:notification_data) { { 'id' => '123', 'type' => 'mention', 'created_at' => '2024-01-01T00:00:00Z' } }
+      let(:response) { double('response', success?: true, body: notification_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/notifications/123').and_return(response)
+      end
+
+      it 'should return notification data' do
+        expect(subject).to eq(notification_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get notification: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'clear_notifications' do
+    subject { described_class.new(url:, headers:).clear_notifications }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+
+    context 'when request succeeds' do
+      let(:response) { double('response', success?: true, body: '{}') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/notifications/clear').and_return(response)
+      end
+
+      it 'should return empty object' do
+        expect(subject).to eq({})
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to clear notifications: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'dismiss_notification' do
+    subject { described_class.new(url:, headers:).dismiss_notification(notification_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:notification_id) { '123' }
+
+    context 'when notification_id is nil' do
+      let(:notification_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'notification_id is required')
+      end
+    end
+
+    context 'when notification_id is empty' do
+      let(:notification_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'notification_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:response) { double('response', success?: true, body: '{}') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/notifications/123/dismiss').and_return(response)
+      end
+
+      it 'should return empty object' do
+        expect(subject).to eq({})
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to dismiss notification: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
 end
