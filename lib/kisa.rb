@@ -543,6 +543,190 @@ class Kisa
     raise ConnectionFailedError
   end
 
+  # Accounts API - Extended
+
+  def block_account(account_id)
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    response = @conn.post("/api/v1/accounts/#{account_id}/block")
+
+    unless response.success?
+      raise Error, "Failed to block account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unblock_account(account_id)
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    response = @conn.post("/api/v1/accounts/#{account_id}/unblock")
+
+    unless response.success?
+      raise Error, "Failed to unblock account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def mute_account(account_id, options = {})
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    allowed_options = %i[notifications duration]
+    body = options.select { |key, _| allowed_options.include?(key) }
+
+    if body.empty?
+      response = @conn.post("/api/v1/accounts/#{account_id}/mute")
+    else
+      response = @conn.post("/api/v1/accounts/#{account_id}/mute", body.to_json, { 'Content-Type' => 'application/json' })
+    end
+
+    unless response.success?
+      raise Error, "Failed to mute account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unmute_account(account_id)
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    response = @conn.post("/api/v1/accounts/#{account_id}/unmute")
+
+    unless response.success?
+      raise Error, "Failed to unmute account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def pin_account(account_id)
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    response = @conn.post("/api/v1/accounts/#{account_id}/pin")
+
+    unless response.success?
+      raise Error, "Failed to pin account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def unpin_account(account_id)
+    raise ArgumentError, "account_id is required" if account_id.nil? || account_id.to_s.empty?
+
+    response = @conn.post("/api/v1/accounts/#{account_id}/unpin")
+
+    unless response.success?
+      raise Error, "Failed to unpin account: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def relationships(account_ids)
+    raise ArgumentError, "account_ids is required" if account_ids.nil? || account_ids.empty?
+
+    account_ids = [account_ids] unless account_ids.is_a?(Array)
+
+    query_parts = account_ids.map { |id| "id[]=#{CGI.escape(id.to_s)}" }
+    url = "/api/v1/accounts/relationships?#{query_parts.join('&')}"
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get relationships: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def bookmarks(params = {})
+    allowed_params = %i[max_id since_id min_id limit]
+    query_params = build_timeline_query_params(params, allowed_params)
+
+    url = "/api/v1/bookmarks"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get bookmarks: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def favourites(params = {})
+    allowed_params = %i[max_id since_id min_id limit]
+    query_params = build_timeline_query_params(params, allowed_params)
+
+    url = "/api/v1/favourites"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get favourites: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def mutes(params = {})
+    allowed_params = %i[max_id since_id min_id limit]
+    query_params = build_timeline_query_params(params, allowed_params)
+
+    url = "/api/v1/mutes"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get mutes: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def blocks(params = {})
+    allowed_params = %i[max_id since_id min_id limit]
+    query_params = build_timeline_query_params(params, allowed_params)
+
+    url = "/api/v1/blocks"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get blocks: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
   private
 
   def build_query_params(params)
