@@ -727,6 +727,66 @@ class Kisa
     raise ConnectionFailedError
   end
 
+  # Notifications API
+
+  def notifications(params = {})
+    allowed_params = %i[max_id since_id min_id limit types exclude_types account_id]
+    query_params = build_notification_query_params(params, allowed_params)
+
+    url = "/api/v1/notifications"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get notifications: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def get_notification(notification_id)
+    raise ArgumentError, "notification_id is required" if notification_id.nil? || notification_id.to_s.empty?
+
+    response = @conn.get("/api/v1/notifications/#{notification_id}")
+
+    unless response.success?
+      raise Error, "Failed to get notification: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def clear_notifications
+    response = @conn.post("/api/v1/notifications/clear")
+
+    unless response.success?
+      raise Error, "Failed to clear notifications: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def dismiss_notification(notification_id)
+    raise ArgumentError, "notification_id is required" if notification_id.nil? || notification_id.to_s.empty?
+
+    response = @conn.post("/api/v1/notifications/#{notification_id}/dismiss")
+
+    unless response.success?
+      raise Error, "Failed to dismiss notification: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
   private
 
   def build_query_params(params)
@@ -774,6 +834,29 @@ class Kisa
     filtered_params.map do |key, value|
       "#{key}=#{CGI.escape(value.to_s)}"
     end.join('&')
+  end
+
+  def build_notification_query_params(params, allowed_params)
+    filtered_params = params.select { |key, _| allowed_params.include?(key) }
+
+    query_parts = []
+
+    # Handle array parameters (types, exclude_types)
+    %i[types exclude_types].each do |param|
+      if filtered_params[param].is_a?(Array)
+        filtered_params[param].each do |value|
+          query_parts << "#{param}[]=#{CGI.escape(value.to_s)}"
+        end
+        filtered_params.delete(param)
+      end
+    end
+
+    # Handle regular parameters
+    filtered_params.each do |key, value|
+      query_parts << "#{key}=#{CGI.escape(value.to_s)}"
+    end
+
+    query_parts.join('&')
   end
 
   def stream(url)
