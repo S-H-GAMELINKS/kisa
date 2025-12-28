@@ -3877,4 +3877,763 @@ RSpec.describe Kisa do
       end
     end
   end
+
+  # Accounts API - Extended
+
+  describe 'block_account' do
+    subject { described_class.new(url:, headers:).block_account(account_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123' }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:relationship_data) { { 'id' => '123', 'blocking' => true } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/accounts/123/block').and_return(response)
+      end
+
+      it 'should return relationship data' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to block account: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'unblock_account' do
+    subject { described_class.new(url:, headers:).unblock_account(account_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123' }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:relationship_data) { { 'id' => '123', 'blocking' => false } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/accounts/123/unblock').and_return(response)
+      end
+
+      it 'should return relationship data' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unblock account: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'mute_account' do
+    subject { described_class.new(url:, headers:).mute_account(account_id, options) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123' }
+    let(:options) { {} }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds without options' do
+      let(:relationship_data) { { 'id' => '123', 'muting' => true } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/accounts/123/mute').and_return(response)
+      end
+
+      it 'should return relationship data' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request succeeds with options' do
+      let(:options) { { notifications: false, duration: 3600 } }
+      let(:relationship_data) { { 'id' => '123', 'muting' => true, 'muting_notifications' => false } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with(
+          '/api/v1/accounts/123/mute',
+          { notifications: false, duration: 3600 }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return relationship data' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to mute account: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'unmute_account' do
+    subject { described_class.new(url:, headers:).unmute_account(account_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123' }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:relationship_data) { { 'id' => '123', 'muting' => false } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/accounts/123/unmute').and_return(response)
+      end
+
+      it 'should return relationship data' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unmute account: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'pin_account' do
+    subject { described_class.new(url:, headers:).pin_account(account_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123' }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:relationship_data) { { 'id' => '123', 'endorsed' => true } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/accounts/123/pin').and_return(response)
+      end
+
+      it 'should return relationship data' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to pin account: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'unpin_account' do
+    subject { described_class.new(url:, headers:).unpin_account(account_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_id) { '123' }
+
+    context 'when account_id is nil' do
+      let(:account_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when account_id is empty' do
+      let(:account_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:relationship_data) { { 'id' => '123', 'endorsed' => false } }
+      let(:response) { double('response', success?: true, body: relationship_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with('/api/v1/accounts/123/unpin').and_return(response)
+      end
+
+      it 'should return relationship data' do
+        expect(subject).to eq(relationship_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to unpin account: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'relationships' do
+    subject { described_class.new(url:, headers:).relationships(account_ids) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:account_ids) { ['123', '456'] }
+
+    context 'when account_ids is nil' do
+      let(:account_ids) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_ids is required')
+      end
+    end
+
+    context 'when account_ids is empty' do
+      let(:account_ids) { [] }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_ids is required')
+      end
+    end
+
+    context 'when request succeeds with multiple ids' do
+      let(:relationships_data) do
+        [
+          { 'id' => '123', 'following' => true, 'blocking' => false },
+          { 'id' => '456', 'following' => false, 'blocking' => true }
+        ]
+      end
+      let(:response) { double('response', success?: true, body: relationships_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/accounts/relationships?id[]=123&id[]=456').and_return(response)
+      end
+
+      it 'should return relationships data' do
+        expect(subject).to eq(relationships_data)
+      end
+    end
+
+    context 'when request succeeds with single id' do
+      let(:account_ids) { '123' }
+      let(:relationships_data) { [{ 'id' => '123', 'following' => true }] }
+      let(:response) { double('response', success?: true, body: relationships_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/accounts/relationships?id[]=123').and_return(response)
+      end
+
+      it 'should return relationships data' do
+        expect(subject).to eq(relationships_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get relationships: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'bookmarks' do
+    subject { described_class.new(url:, headers:).bookmarks(params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:params) { {} }
+
+    context 'when request succeeds without params' do
+      let(:bookmarks_data) { [{ 'id' => '1', 'content' => 'Bookmark 1' }, { 'id' => '2', 'content' => 'Bookmark 2' }] }
+      let(:response) { double('response', success?: true, body: bookmarks_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/bookmarks').and_return(response)
+      end
+
+      it 'should return bookmarks data' do
+        expect(subject).to eq(bookmarks_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 10, max_id: '100' } }
+      let(:bookmarks_data) { [{ 'id' => '1', 'content' => 'Bookmark 1' }] }
+      let(:response) { double('response', success?: true, body: bookmarks_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/bookmarks?limit=10&max_id=100').and_return(response)
+      end
+
+      it 'should return bookmarks data' do
+        expect(subject).to eq(bookmarks_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get bookmarks: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'favourites' do
+    subject { described_class.new(url:, headers:).favourites(params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:params) { {} }
+
+    context 'when request succeeds without params' do
+      let(:favourites_data) { [{ 'id' => '1', 'content' => 'Favourite 1' }, { 'id' => '2', 'content' => 'Favourite 2' }] }
+      let(:response) { double('response', success?: true, body: favourites_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/favourites').and_return(response)
+      end
+
+      it 'should return favourites data' do
+        expect(subject).to eq(favourites_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 10, max_id: '100' } }
+      let(:favourites_data) { [{ 'id' => '1', 'content' => 'Favourite 1' }] }
+      let(:response) { double('response', success?: true, body: favourites_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/favourites?limit=10&max_id=100').and_return(response)
+      end
+
+      it 'should return favourites data' do
+        expect(subject).to eq(favourites_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get favourites: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'mutes' do
+    subject { described_class.new(url:, headers:).mutes(params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:params) { {} }
+
+    context 'when request succeeds without params' do
+      let(:mutes_data) { [{ 'id' => '1', 'username' => 'user1' }, { 'id' => '2', 'username' => 'user2' }] }
+      let(:response) { double('response', success?: true, body: mutes_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/mutes').and_return(response)
+      end
+
+      it 'should return mutes data' do
+        expect(subject).to eq(mutes_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 10, max_id: '100' } }
+      let(:mutes_data) { [{ 'id' => '1', 'username' => 'user1' }] }
+      let(:response) { double('response', success?: true, body: mutes_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/mutes?limit=10&max_id=100').and_return(response)
+      end
+
+      it 'should return mutes data' do
+        expect(subject).to eq(mutes_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get mutes: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'blocks' do
+    subject { described_class.new(url:, headers:).blocks(params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:params) { {} }
+
+    context 'when request succeeds without params' do
+      let(:blocks_data) { [{ 'id' => '1', 'username' => 'user1' }, { 'id' => '2', 'username' => 'user2' }] }
+      let(:response) { double('response', success?: true, body: blocks_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/blocks').and_return(response)
+      end
+
+      it 'should return blocks data' do
+        expect(subject).to eq(blocks_data)
+      end
+    end
+
+    context 'when request succeeds with params' do
+      let(:params) { { limit: 10, max_id: '100' } }
+      let(:blocks_data) { [{ 'id' => '1', 'username' => 'user1' }] }
+      let(:response) { double('response', success?: true, body: blocks_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/blocks?limit=10&max_id=100').and_return(response)
+      end
+
+      it 'should return blocks data' do
+        expect(subject).to eq(blocks_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get blocks: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
 end
