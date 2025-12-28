@@ -787,6 +787,42 @@ class Kisa
     raise ConnectionFailedError
   end
 
+  # Polls API
+
+  def get_poll(poll_id)
+    raise ArgumentError, "poll_id is required" if poll_id.nil? || poll_id.to_s.empty?
+
+    response = @conn.get("/api/v1/polls/#{poll_id}")
+
+    unless response.success?
+      raise Error, "Failed to get poll: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def vote_poll(poll_id, choices)
+    raise ArgumentError, "poll_id is required" if poll_id.nil? || poll_id.to_s.empty?
+    raise ArgumentError, "choices is required" if choices.nil?
+
+    choices = [choices] unless choices.is_a?(Array)
+    raise ArgumentError, "choices is required" if choices.empty?
+
+    body = { choices: choices }
+
+    response = @conn.post("/api/v1/polls/#{poll_id}/votes", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to vote poll: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
   private
 
   def build_query_params(params)

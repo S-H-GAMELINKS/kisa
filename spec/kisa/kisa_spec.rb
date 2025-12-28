@@ -4916,4 +4916,214 @@ RSpec.describe Kisa do
       end
     end
   end
+
+  # Polls API
+
+  describe 'get_poll' do
+    subject { described_class.new(url:, headers:).get_poll(poll_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:poll_id) { '123' }
+
+    context 'when poll_id is nil' do
+      let(:poll_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'poll_id is required')
+      end
+    end
+
+    context 'when poll_id is empty' do
+      let(:poll_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'poll_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:poll_data) do
+        {
+          'id' => '123',
+          'expires_at' => '2024-01-02T00:00:00Z',
+          'expired' => false,
+          'multiple' => false,
+          'votes_count' => 10,
+          'options' => [
+            { 'title' => 'Option 1', 'votes_count' => 6 },
+            { 'title' => 'Option 2', 'votes_count' => 4 }
+          ]
+        }
+      end
+      let(:response) { double('response', success?: true, body: poll_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/polls/123').and_return(response)
+      end
+
+      it 'should return poll data' do
+        expect(subject).to eq(poll_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get poll: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'vote_poll' do
+    subject { described_class.new(url:, headers:).vote_poll(poll_id, choices) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:poll_id) { '123' }
+    let(:choices) { [0] }
+
+    context 'when poll_id is nil' do
+      let(:poll_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'poll_id is required')
+      end
+    end
+
+    context 'when poll_id is empty' do
+      let(:poll_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'poll_id is required')
+      end
+    end
+
+    context 'when choices is nil' do
+      let(:choices) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'choices is required')
+      end
+    end
+
+    context 'when choices is empty' do
+      let(:choices) { [] }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'choices is required')
+      end
+    end
+
+    context 'when request succeeds with single choice' do
+      let(:choices) { 0 }
+      let(:poll_data) do
+        {
+          'id' => '123',
+          'expired' => false,
+          'voted' => true,
+          'own_votes' => [0],
+          'options' => [
+            { 'title' => 'Option 1', 'votes_count' => 7 },
+            { 'title' => 'Option 2', 'votes_count' => 4 }
+          ]
+        }
+      end
+      let(:response) { double('response', success?: true, body: poll_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with(
+          '/api/v1/polls/123/votes',
+          { choices: [0] }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return poll data' do
+        expect(subject).to eq(poll_data)
+      end
+    end
+
+    context 'when request succeeds with multiple choices' do
+      let(:choices) { [0, 2] }
+      let(:poll_data) do
+        {
+          'id' => '123',
+          'expired' => false,
+          'multiple' => true,
+          'voted' => true,
+          'own_votes' => [0, 2],
+          'options' => [
+            { 'title' => 'Option 1', 'votes_count' => 7 },
+            { 'title' => 'Option 2', 'votes_count' => 4 },
+            { 'title' => 'Option 3', 'votes_count' => 3 }
+          ]
+        }
+      end
+      let(:response) { double('response', success?: true, body: poll_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with(
+          '/api/v1/polls/123/votes',
+          { choices: [0, 2] }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return poll data' do
+        expect(subject).to eq(poll_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 422, body: 'Already voted') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to vote poll: 422 Already voted')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
 end
