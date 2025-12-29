@@ -823,6 +823,152 @@ class Kisa
     raise ConnectionFailedError
   end
 
+  # Lists API
+
+  def get_lists
+    response = @conn.get("/api/v1/lists")
+
+    unless response.success?
+      raise Error, "Failed to get lists: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def get_list(list_id)
+    raise ArgumentError, "list_id is required" if list_id.nil? || list_id.to_s.empty?
+
+    response = @conn.get("/api/v1/lists/#{list_id}")
+
+    unless response.success?
+      raise Error, "Failed to get list: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def create_list(title, options = {})
+    raise ArgumentError, "title is required" if title.nil? || title.to_s.empty?
+
+    body = { title: title }
+
+    allowed_options = %i[replies_policy exclusive]
+    allowed_options.each do |key|
+      body[key] = options[key] if options.key?(key)
+    end
+
+    response = @conn.post("/api/v1/lists", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to create list: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def update_list(list_id, title, options = {})
+    raise ArgumentError, "list_id is required" if list_id.nil? || list_id.to_s.empty?
+    raise ArgumentError, "title is required" if title.nil? || title.to_s.empty?
+
+    body = { title: title }
+
+    allowed_options = %i[replies_policy exclusive]
+    allowed_options.each do |key|
+      body[key] = options[key] if options.key?(key)
+    end
+
+    response = @conn.put("/api/v1/lists/#{list_id}", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to update list: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def delete_list(list_id)
+    raise ArgumentError, "list_id is required" if list_id.nil? || list_id.to_s.empty?
+
+    response = @conn.delete("/api/v1/lists/#{list_id}")
+
+    unless response.success?
+      raise Error, "Failed to delete list: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def get_list_accounts(list_id, params = {})
+    raise ArgumentError, "list_id is required" if list_id.nil? || list_id.to_s.empty?
+
+    allowed_params = %i[max_id since_id min_id limit]
+    query_params = build_timeline_query_params(params, allowed_params)
+
+    url = "/api/v1/lists/#{list_id}/accounts"
+    url += "?#{query_params}" unless query_params.empty?
+
+    response = @conn.get(url)
+
+    unless response.success?
+      raise Error, "Failed to get list accounts: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def add_accounts_to_list(list_id, account_ids)
+    raise ArgumentError, "list_id is required" if list_id.nil? || list_id.to_s.empty?
+    raise ArgumentError, "account_ids is required" if account_ids.nil?
+
+    account_ids = [account_ids] unless account_ids.is_a?(Array)
+    raise ArgumentError, "account_ids is required" if account_ids.empty?
+
+    body = { account_ids: account_ids }
+
+    response = @conn.post("/api/v1/lists/#{list_id}/accounts", body.to_json, { 'Content-Type' => 'application/json' })
+
+    unless response.success?
+      raise Error, "Failed to add accounts to list: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
+  def remove_accounts_from_list(list_id, account_ids)
+    raise ArgumentError, "list_id is required" if list_id.nil? || list_id.to_s.empty?
+    raise ArgumentError, "account_ids is required" if account_ids.nil?
+
+    account_ids = [account_ids] unless account_ids.is_a?(Array)
+    raise ArgumentError, "account_ids is required" if account_ids.empty?
+
+    query_parts = account_ids.map { |id| "account_ids[]=#{CGI.escape(id.to_s)}" }
+    url = "/api/v1/lists/#{list_id}/accounts?#{query_parts.join('&')}"
+
+    response = @conn.delete(url)
+
+    unless response.success?
+      raise Error, "Failed to remove accounts from list: #{response.status} #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  rescue Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::SSLError
+    raise ConnectionFailedError
+  end
+
   private
 
   def build_query_params(params)
