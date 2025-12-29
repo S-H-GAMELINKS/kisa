@@ -5126,4 +5126,686 @@ RSpec.describe Kisa do
       end
     end
   end
+
+  # Lists API
+
+  describe 'get_lists' do
+    subject { described_class.new(url:, headers:).get_lists }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+
+    context 'when request succeeds' do
+      let(:lists_data) do
+        [
+          { 'id' => '1', 'title' => 'Friends', 'replies_policy' => 'followed', 'exclusive' => false },
+          { 'id' => '2', 'title' => 'Family', 'replies_policy' => 'list', 'exclusive' => true }
+        ]
+      end
+      let(:response) { double('response', success?: true, body: lists_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/lists').and_return(response)
+      end
+
+      it 'should return lists data' do
+        expect(subject).to eq(lists_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 401, body: 'Unauthorized') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get lists: 401 Unauthorized')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'get_list' do
+    subject { described_class.new(url:, headers:).get_list(list_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:list_id) { '123' }
+
+    context 'when list_id is nil' do
+      let(:list_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when list_id is empty' do
+      let(:list_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:list_data) do
+        { 'id' => '123', 'title' => 'Friends', 'replies_policy' => 'followed', 'exclusive' => false }
+      end
+      let(:response) { double('response', success?: true, body: list_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/lists/123').and_return(response)
+      end
+
+      it 'should return list data' do
+        expect(subject).to eq(list_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get list: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'create_list' do
+    subject { described_class.new(url:, headers:).create_list(title, options) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:title) { 'Friends' }
+    let(:options) { {} }
+
+    context 'when title is nil' do
+      let(:title) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'title is required')
+      end
+    end
+
+    context 'when title is empty' do
+      let(:title) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'title is required')
+      end
+    end
+
+    context 'when request succeeds with title only' do
+      let(:list_data) do
+        { 'id' => '123', 'title' => 'Friends', 'replies_policy' => 'list', 'exclusive' => false }
+      end
+      let(:response) { double('response', success?: true, body: list_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with(
+          '/api/v1/lists',
+          { title: 'Friends' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return list data' do
+        expect(subject).to eq(list_data)
+      end
+    end
+
+    context 'when request succeeds with options' do
+      let(:options) { { replies_policy: 'followed', exclusive: true } }
+      let(:list_data) do
+        { 'id' => '123', 'title' => 'Friends', 'replies_policy' => 'followed', 'exclusive' => true }
+      end
+      let(:response) { double('response', success?: true, body: list_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with(
+          '/api/v1/lists',
+          { title: 'Friends', replies_policy: 'followed', exclusive: true }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return list data' do
+        expect(subject).to eq(list_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 422, body: 'Validation failed') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to create list: 422 Validation failed')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'update_list' do
+    subject { described_class.new(url:, headers:).update_list(list_id, title, options) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:list_id) { '123' }
+    let(:title) { 'Updated Friends' }
+    let(:options) { {} }
+
+    context 'when list_id is nil' do
+      let(:list_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when list_id is empty' do
+      let(:list_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when title is nil' do
+      let(:title) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'title is required')
+      end
+    end
+
+    context 'when title is empty' do
+      let(:title) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'title is required')
+      end
+    end
+
+    context 'when request succeeds with title only' do
+      let(:list_data) do
+        { 'id' => '123', 'title' => 'Updated Friends', 'replies_policy' => 'list', 'exclusive' => false }
+      end
+      let(:response) { double('response', success?: true, body: list_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:put).with(
+          '/api/v1/lists/123',
+          { title: 'Updated Friends' }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return list data' do
+        expect(subject).to eq(list_data)
+      end
+    end
+
+    context 'when request succeeds with options' do
+      let(:options) { { replies_policy: 'none', exclusive: true } }
+      let(:list_data) do
+        { 'id' => '123', 'title' => 'Updated Friends', 'replies_policy' => 'none', 'exclusive' => true }
+      end
+      let(:response) { double('response', success?: true, body: list_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:put).with(
+          '/api/v1/lists/123',
+          { title: 'Updated Friends', replies_policy: 'none', exclusive: true }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return list data' do
+        expect(subject).to eq(list_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:put).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to update list: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:put).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'delete_list' do
+    subject { described_class.new(url:, headers:).delete_list(list_id) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:list_id) { '123' }
+
+    context 'when list_id is nil' do
+      let(:list_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when list_id is empty' do
+      let(:list_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when request succeeds' do
+      let(:response) { double('response', success?: true, body: '{}') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).with('/api/v1/lists/123').and_return(response)
+      end
+
+      it 'should return empty object' do
+        expect(subject).to eq({})
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to delete list: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'get_list_accounts' do
+    subject { described_class.new(url:, headers:).get_list_accounts(list_id, params) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:list_id) { '123' }
+    let(:params) { {} }
+
+    context 'when list_id is nil' do
+      let(:list_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when list_id is empty' do
+      let(:list_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when request succeeds without params' do
+      let(:accounts_data) do
+        [
+          { 'id' => '1', 'username' => 'user1', 'acct' => 'user1' },
+          { 'id' => '2', 'username' => 'user2', 'acct' => 'user2@remote.server' }
+        ]
+      end
+      let(:response) { double('response', success?: true, body: accounts_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/lists/123/accounts').and_return(response)
+      end
+
+      it 'should return accounts data' do
+        expect(subject).to eq(accounts_data)
+      end
+    end
+
+    context 'when request succeeds with pagination params' do
+      let(:params) { { limit: 10, max_id: '100' } }
+      let(:accounts_data) do
+        [{ 'id' => '3', 'username' => 'user3', 'acct' => 'user3' }]
+      end
+      let(:response) { double('response', success?: true, body: accounts_data.to_json) }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).with('/api/v1/lists/123/accounts?limit=10&max_id=100').and_return(response)
+      end
+
+      it 'should return accounts data' do
+        expect(subject).to eq(accounts_data)
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to get list accounts: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:get).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'add_accounts_to_list' do
+    subject { described_class.new(url:, headers:).add_accounts_to_list(list_id, account_ids) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:list_id) { '123' }
+    let(:account_ids) { ['1', '2'] }
+
+    context 'when list_id is nil' do
+      let(:list_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when list_id is empty' do
+      let(:list_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when account_ids is nil' do
+      let(:account_ids) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_ids is required')
+      end
+    end
+
+    context 'when account_ids is empty' do
+      let(:account_ids) { [] }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_ids is required')
+      end
+    end
+
+    context 'when request succeeds with single account_id' do
+      let(:account_ids) { '1' }
+      let(:response) { double('response', success?: true, body: '{}') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with(
+          '/api/v1/lists/123/accounts',
+          { account_ids: ['1'] }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return empty object' do
+        expect(subject).to eq({})
+      end
+    end
+
+    context 'when request succeeds with multiple account_ids' do
+      let(:account_ids) { ['1', '2', '3'] }
+      let(:response) { double('response', success?: true, body: '{}') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).with(
+          '/api/v1/lists/123/accounts',
+          { account_ids: ['1', '2', '3'] }.to_json,
+          { 'Content-Type' => 'application/json' }
+        ).and_return(response)
+      end
+
+      it 'should return empty object' do
+        expect(subject).to eq({})
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to add accounts to list: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:post).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
+
+  describe 'remove_accounts_from_list' do
+    subject { described_class.new(url:, headers:).remove_accounts_from_list(list_id, account_ids) }
+
+    let(:url) { 'https://www.example.com' }
+    let(:headers) { { 'Authorization' => 'dummy_token' } }
+    let(:list_id) { '123' }
+    let(:account_ids) { ['1', '2'] }
+
+    context 'when list_id is nil' do
+      let(:list_id) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when list_id is empty' do
+      let(:list_id) { '' }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'list_id is required')
+      end
+    end
+
+    context 'when account_ids is nil' do
+      let(:account_ids) { nil }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_ids is required')
+      end
+    end
+
+    context 'when account_ids is empty' do
+      let(:account_ids) { [] }
+
+      it 'should raise ArgumentError' do
+        expect { subject }.to raise_error(ArgumentError, 'account_ids is required')
+      end
+    end
+
+    context 'when request succeeds with single account_id' do
+      let(:account_ids) { '1' }
+      let(:response) { double('response', success?: true, body: '{}') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).with('/api/v1/lists/123/accounts?account_ids[]=1').and_return(response)
+      end
+
+      it 'should return empty object' do
+        expect(subject).to eq({})
+      end
+    end
+
+    context 'when request succeeds with multiple account_ids' do
+      let(:account_ids) { ['1', '2', '3'] }
+      let(:response) { double('response', success?: true, body: '{}') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).with('/api/v1/lists/123/accounts?account_ids[]=1&account_ids[]=2&account_ids[]=3').and_return(response)
+      end
+
+      it 'should return empty object' do
+        expect(subject).to eq({})
+      end
+    end
+
+    context 'when request fails' do
+      let(:response) { double('response', success?: false, status: 404, body: 'Not found') }
+
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).and_return(response)
+      end
+
+      it 'should raise Kisa::Error' do
+        expect { subject }.to raise_error(Kisa::Error, 'Failed to remove accounts from list: 404 Not found')
+      end
+    end
+
+    context 'when connection fails' do
+      before do
+        connection = instance_double(Faraday::Connection)
+        allow(Faraday).to receive(:new).and_return(connection)
+        allow(connection).to receive(:delete).and_raise(Faraday::ConnectionFailed)
+      end
+
+      it 'should raise Kisa::ConnectionFailedError' do
+        expect { subject }.to raise_error(Kisa::ConnectionFailedError)
+      end
+    end
+  end
 end
